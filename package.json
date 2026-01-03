@@ -1,0 +1,16 @@
+{
+  "name": "reading-bot",
+  "version": "1.0.0",
+  "description": "Discord 독후감 카운트 봇 - 비트코인 & 자유주의 도서",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "keywords": ["discord", "bot", "bitcoin", "reading"],
+  "author": "Mr.B",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.17.3",
+    "dotenv": "^16.4.5"
+  }
+}
