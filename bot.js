@@ -58,6 +58,36 @@ const commands = [
   new SlashCommandBuilder().setName('채널목록').setDescription('독후감 채널 목록을 확인합니다')
 ].map(c => c.toJSON());
 
+// ===== SECURITY PATCH: Rate Limiting =====
+const cooldowns = new Map();
+const COOLDOWN_CONFIG = {
+  '독후감': 10,      // 10초 - 가벼운 조회
+  '초기화': 300,     // 5분 - 전체 채널 스캔 (DoS 방지)
+  '채널목록': 30     // 30초 - 정적 데이터
+};
+
+function checkCooldown(userId, commandName) {
+  const now = Date.now();
+  const cooldownSeconds = COOLDOWN_CONFIG[commandName];
+  if (!cooldownSeconds) return { allowed: true };
+
+  const key = `${userId}-${commandName}`;
+  const cooldownAmount = cooldownSeconds * 1000;
+
+  if (cooldowns.has(key)) {
+    const expirationTime = cooldowns.get(key) + cooldownAmount;
+    if (now < expirationTime) {
+      const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+      return { allowed: false, timeLeft };
+    }
+  }
+
+  cooldowns.set(key, now);
+  setTimeout(() => cooldowns.delete(key), cooldownAmount);
+  return { allowed: true };
+}
+// ===== END SECURITY PATCH =====
+
 function loadCounts() {
   try { if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) {}
   return {};
@@ -113,6 +143,17 @@ client.on(Events.MessageCreate, async (msg) => {
 client.on(Events.InteractionCreate, async (i) => {
   if (!i.isChatInputCommand()) return;
   const { commandName, user } = i;
+
+  // ===== SECURITY PATCH: Rate Limiting Check =====
+  const cooldownCheck = checkCooldown(user.id, commandName);
+  if (!cooldownCheck.allowed) {
+    await i.reply({
+      content: `⏱️ 이 명령어는 ${cooldownCheck.timeLeft}초 후에 다시 사용할 수 있습니다.`,
+      flags: 64
+    });
+    return;
+  }
+  // ===== END SECURITY PATCH =====
 
   if (commandName === '독후감') {
     const br = getReadBooks(user.id, 'bitcoin', bookCounts), lr = getReadBooks(user.id, 'liberty', bookCounts);
